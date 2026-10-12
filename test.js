@@ -1,0 +1,27 @@
+const C = require('./calc.js'), assert = require('assert'); let n = 0;
+const t = (name, f) => { f(); n++; console.log('PASS', name); };
+const close = (a, b, e = 1e-6) => assert(Math.abs(a - b) < e, `${a} != ${b}`);
+const R = o => C.resin({ cavity: 100, method: 'allowance', shrink: 10, waste: 0, basis: 'volume', a: 2, b: 1, inc: 0.1, ...o });
+const B = o => C.buoyancy({ rho: 1.025, volSrc: 'measured', volMode: 'volume', vol: 100, wood: 95, mode: 'float', margin: 2.5, ...o });
+t('R1 100ml +10% = 110ml', () => close(R().total, 110));
+t('R2 2:1 vol split', () => { const r = R(); close(r.A, 73.3333, 1e-3); close(r.B, 36.6667, 1e-3); assert.equal(r.unit, 'ml'); });
+t('R3 weight ratio splits mass', () => { const r = R({ basis: 'weight', mixDens: 1.1 }); close(r.M, 121); close(r.A, 80.6667, 1e-3); assert.equal(r.unit, 'g'); assert.notEqual(Math.round(r.A * 100), 7333); });
+t('R3b weight needs densities', () => { const r = R({ basis: 'weight' }); assert(!r.partsOk && r.missing.length); });
+t('R4 correction not combined with allowance', () => { const r = R({ method: 'correction' }); close(r.total, 100 / 0.9); assert(Math.abs(r.total - 110) > 1); });
+t('R5 unknown ratio/basis refused', () => { const r = R({ a: NaN, b: NaN, basis: '' }); assert(r.ok && !r.partsOk && r.missing.length === 2); });
+t('R6 round up never down', () => { const r = R({ inc: 1 }); assert(r.Ar >= r.A && r.Br >= r.B && r.Ar === 74); });
+t('R7 shape volumes', () => { close(C.shapeVolume('block', 100, 20, 10), 20); close(C.shapeVolume('sphere', 0, 0, 0, 20), 4.18879, 1e-4); });
+t('B1 neutral at 102.5 g', () => close(B().D, 102.5));
+t('B2 margin +12.5 at 90 g', () => close(B({ wood: 90, installed: 0 }).marginNow, 12.5));
+t('B3 lead = 5 g', () => close(B().need, 5));
+t('B4 negative reported, not silent', () => { const r = B({ wood: 110 }); assert(r.negative && r.need === 0 && /no lead/i.test(r.msg) && r.target < 0); });
+t('B5 lead does not change displacement', () => { const a = B({ installed: 0 }), b = B({ installed: 20 }); assert.equal(a.V, b.V); close(b.marginNow, a.marginNow - 20); });
+t('B6 neutral is a mass balance only', () => { const r = B({ mode: 'sink', offset: 0 }); close(r.target, r.neutralLead); assert(!('speed' in r)); });
+t('B7 completed mass not double counted', () => { const r = B({ completed: 90, wood: 50, hook: 20, exLead: 10 }); close(r.base, 90); });
+t('B8 fresh/salt density, no double count', () => {
+  const f = B({ volMode: 'fresh_mass', vol: 100, wood: 90 }); close(f.V, 100 / 0.998); close(f.D, 1.025 * 100 / 0.998);
+  const s = B({ volMode: 'salt_mass', vol: 102.5, wood: 90 }); close(s.V, 100); close(s.D, 102.5); });
+t('B9 validation', () => { assert(!B({ vol: -1 }).ok); assert(!B({ rho: 5 }).ok); assert(!B({ wood: NaN }).ok); });
+t('B10 lead pieces', () => { const r = B({ leadInc: 0.5, wood: 94.3 }); assert(Math.abs(r.diff) <= 0.25 + 1e-9); });
+t('speed', () => close(C.speed(50, 25), 2));
+console.log(`\n${n} tests passed`);
