@@ -6,8 +6,8 @@ const f = (x, d = 2) => (Number.isFinite(x) ? (+x).toFixed(d) : '–');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 $('#ver').textContent = 'v' + C.VERSION;
 
-const RD = { resin: 'kristal6', mode: 'known', unit: 'mm', cav: '', L: '', W: '', H: '', D: '', basis: '', ra: '', rb: '', densA: '', densB: '', mixDens: '', method: 'allowance', shrink: '', waste: 5, inc: 0.5 };
-const BD = { name: '', notes: '', rho: 1.025, volSrc: 'measured', volMode: 'volume', vol: '', L: '', W: '', H: '', woodType: 'cedar', woodDens: '', wood: '', resin: '', paint: '', hook: '', ring: '', wire: '', other: '', exLead: '', exBallast: '', completed: '', mode: 'float', margin: 2.5, rate: 1, offset: '', installed: '', leadInc: 0.5 };
+const RD = { resin: 'kristal6', mode: 'known', unit: 'mm', cav: '', L: '', W: '', H: '', D: '', basis: 'weight', ra: 100, rb: 33, densA: '', densB: '', mixDens: 1.1, method: 'allowance', shrink: '', waste: 5, inc: 0.5 };
+const BD = { name: '', notes: '', rho: 1.025, volSrc: 'measured', volMode: 'volume', vol: '', L: '', W: '', H: '', woodType: 'meranti', woodDens: '', wood: '', resin: '', paint: '', hook: '', ring: '', wire: '', other: '', exLead: '', exBallast: '', completed: '', mode: 'float', margin: 2.5, rate: 1, offset: '', installed: '', leadInc: 0.5 };
 const st = { resin: { ...RD, ...ld('ll.resin', {}) }, buoy: { ...BD, ...ld('ll.buoy', {}) }, cal: ld('ll.cal', []) };
 const O = (...a) => a.map(x => [x, x]);
 const isShape = s => s.mode !== 'known';
@@ -20,12 +20,12 @@ const FIELDS = {
     ['unit', 'Dimension unit', null, [['mm', 'mm'], ['cm', 'cm']], '', isShape],
     ['L', 'Length', 'dim', 0, '', s => s.mode === 'block'], ['W', 'Width', 'dim', 0, '', s => s.mode === 'block'],
     ['D', 'Diameter', 'dim', 0, '', s => s.mode === 'cyl' || s.mode === 'sphere'], ['H', 'Height', 'dim', 0, '', s => s.mode === 'block' || s.mode === 'cyl'],
-    ['basis', 'Ratio basis', null, [['', '— select —'], ['volume', 'By volume'], ['weight', 'By weight']], 'Take from the datasheet. Not assumed.'],
-    ['ra', 'Ratio Part A', 'parts', 0, 'Kristal 6 ratio is unverified here: enter from the datasheet.'], ['rb', 'Ratio Part B', 'parts', 0],
+    ['basis', 'Ratio basis', null, [['', '— select —'], ['volume', 'By volume'], ['weight', 'By weight']], 'AMT gives Kristal 6 by WEIGHT only (no volume ratio). Do not mix by volume.'],
+    ['ra', 'Ratio Part A', 'parts', 0, 'Kristal 6: 100:33 by weight (AMT TDS).'], ['rb', 'Ratio Part B', 'parts', 0],
     ['densA', 'Part A density', 'g/ml', 0, 'Needed only for by-weight ratios.', s => s.basis === 'weight'], ['densB', 'Part B density', 'g/ml', 0, '', s => s.basis === 'weight'],
-    ['mixDens', 'Mixed density (optional)', 'g/ml', 0, 'If measured, overrides A/B densities.', s => s.basis === 'weight'],
+    ['mixDens', 'Mixed density (optional)', 'g/ml', 0, 'AMT TDS: specific gravity 1.1 (mixed). Overrides A/B densities.', s => s.basis === 'weight'],
     ['method', 'Shrinkage method', null, [['allowance', 'Simple allowance: V × (1+s)'], ['correction', 'Correction: V ÷ (1−s)']], 'Only one is applied, never both.'],
-    ['shrink', 'Shrinkage', '%', 0, 'Allowance = your safety top-up. Correction = actual volumetric shrinkage from the datasheet.'],
+    ['shrink', 'Shrinkage', '%', 0, 'AMT says only "negligible" (no figure). Enter your own allowance, 0 is allowed. Correction needs a real shrinkage figure.'],
     ['waste', 'Mixing / pouring waste', '%', 0, 'Resin left on cups, stirrers, sprue.'],
     ['inc', 'Round up to', null, [[0.1, '0.1 (g or ml)'], [0.5, '0.5'], [1, '1']], 'Always rounds UP.']],
   buoy: [
@@ -113,6 +113,11 @@ function calTable() {
   $('#calBody').innerHTML = rows || '<tr><td colspan="7">No tests yet.</td></tr>';
 }
 
+function applyPreset() {
+  const p = C.RESINS.find(r => r.id === st.resin.resin); if (!p || !p.verified) return;
+  Object.assign(st.resin, { ra: p.ratioA ?? '', rb: p.ratioB ?? '', basis: p.basis ?? '', mixDens: p.mixDens ?? '', densA: p.densA ?? '', densB: p.densB ?? '' }); sv('ll.resin', st.resin);
+}
+if (st.resin.ra === '' && st.resin.rb === '' && st.resin.basis === '') applyPreset();
 // ---------- history / share ----------
 const summary = t => {
   const r = last[t]; if (!r || !r.ok) return '';
@@ -158,7 +163,7 @@ function render() {
   const m = $('#main');
   if (tab === 'home') m.innerHTML = `<div class="dash"><div class="card" data-tab="resin"><h2>Tool 1</h2><div class="big">Resin Volume</div><p>Part A / Part B for your mould, with shrinkage and waste handled transparently.</p></div><div class="card" data-tab="buoy"><h2>Tool 2</h2><div class="big">Buoyancy & Lead</div><p>Ballast for steady float, slow sink or slow rise, then calibrate by testing.</p></div><div class="card" data-tab="lures"><h2>Library</h2><div class="big">Saved & History</div><p>${lures().length} lures saved. Import / export JSON.</p></div></div>
   <div class="card"><h2>Bench workflow</h2><ol><li>Carve and sand the body; measure mass and external volume.</li><li>Estimate coating and hardware masses.</li><li>Calculate preliminary ballast.</li><li>Temporarily fit ballast and hardware, then seal.</li><li>Test in salt water and adjust lead.</li><li>Record the final behaviour.</li></ol></div>`;
-  else if (tab === 'resin') m.innerHTML = `<div class="grid"><div class="card"><h2>Inputs</h2><div class="note">Kristal 6 ratio, basis, densities and shrinkage are <b>not</b> pre-filled. Enter the datasheet values. Ideal shapes cannot represent a lure cavity.</div>${FIELDS.resin.map(x => fieldHtml('resin', x)).join('')}<button id="rst">Reset</button></div><div class="card"><h2>Result</h2><div id="resinRes" class="res"></div><div id="resinAct" class="btns hide"><button class="pri" data-share="resin">Share result</button><button data-log="resin">Log to history</button></div></div></div>`;
+  else if (tab === 'resin') m.innerHTML = `<div class="grid"><div class="card"><h2>Inputs</h2><div class="note"><b>Verified from AMT TDS Rev 3 (29-06-23):</b> 100:33 by weight, SG 1.1, no volume ratio. <b>Not given:</b> a shrinkage number, so you set it. <b>Max 5 mm per layer</b>: thicker lure bodies must be poured in layers (heat/exotherm; pot life 40 min). Ideal shapes cannot represent a lure cavity.<br><button id="preset">Apply datasheet values</button></div>${FIELDS.resin.map(x => fieldHtml('resin', x)).join('')}<button id="rst">Reset</button></div><div class="card"><h2>Result</h2><div id="resinRes" class="res"></div><div id="resinAct" class="btns hide"><button class="pri" data-share="resin">Share result</button><button data-log="resin">Log to history</button></div></div></div>`;
   else if (tab === 'buoy') m.innerHTML = `<div class="grid"><div class="card"><h2>Lure & inputs</h2>${FIELDS.buoy.map(x => fieldHtml('buoy', x)).join('')}<button id="rst">Reset</button></div><div><div class="card"><h2>Result</h2><div id="buoyRes" class="res"></div><div id="buoyAct" class="btns hide"><button class="pri" data-share="buoy">Share result</button><button data-log="buoy">Log to history</button><button id="saveLure">Save lure</button></div></div>
   <div class="card" style="margin-top:16px"><h2>Test & calibration</h2><p class="note">Drop the sealed lure in salt water, time a fall/rise, and log it. Speed is not linear in lead: orientation and drag change.</p>
   <label><span>Distance</span><div><input id="cd" type="number" step="any" min="0"><b>cm</b></div></label><label><span>Time</span><div><input id="ct" type="number" step="any" min="0"><b>s</b></div></label><label><span>Behaviour</span><div><select id="cb"><option>sank</option><option>rose</option><option>floated</option><option>suspended</option></select></div></label><label><span>Notes</span><div><input id="cn"></div></label><button id="addCal" class="pri">Add test (uses current total mass)</button>
@@ -172,6 +177,7 @@ document.addEventListener('click', e => {
   if (d.tab) { tab = d.tab; render(); }
   else if (d.share) share(d.share); else if (d.log) logHist(d.log);
   else if (b.id === 'rst') { st[tab] = { ...(tab === 'resin' ? RD : BD) }; sv('ll.' + tab, st[tab]); render(); }
+  else if (b.id === 'preset') { applyPreset(); render(); }
   else if (b.id === 'saveLure') saveLure();
   else if (b.id === 'addCal') {
     const sp = C.speed(num($('#cd').value), num($('#ct').value)), r = last.buoy;

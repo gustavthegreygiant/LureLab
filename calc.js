@@ -1,13 +1,14 @@
 /* Lure Lab calculation core. Pure functions, no DOM. Units: mm, cm3/ml, g, g/cm3. */
 (function (root) {
-const VERSION = '1.0.0', FRESH = 0.998;
+const VERSION = '1.1.0', FRESH = 0.998;
 const pos = v => Number.isFinite(v) && v > 0;
 const n0 = v => (Number.isFinite(v) ? v : 0);
 const ceilTo = (x, inc) => (inc > 0 ? Math.ceil(x / inc - 1e-9) * inc : x);
 // Add resins here. null = NOT verified; user must supply from the datasheet.
-const RESINS = [{ id: 'kristal6', name: 'AMT Kristal 6', ratioA: null, ratioB: null, basis: null,
-  densA: null, densB: null, mixDens: null, shrink: null, verified: false }];
-const WOODS = { balsa: ['Balsa', 0.16], cedar: ['Cedar', 0.38], pine: ['Pine', 0.50], meranti: ['Meranti', 0.55], custom: ['Custom', null] };
+const RESINS = [{ id: 'kristal6', name: 'AMT Kristal 6 (Diamond Coat 6, epoxy)', ratioA: 100, ratioB: 33, basis: 'weight',
+  densA: null, densB: null, mixDens: 1.1, shrink: null, verified: true, maxLayerMm: 5,
+  source: 'AMT Composites Kristal TDS Rev 3 (29-06-23): 100:33 by weight, no volume ratio given, SG 1.1, shrinkage "negligible" (no figure), max 5 mm per layer, pot life 40 min, 24 h cure.' }];
+const WOODS = { meranti: ['Meranti', 0.55], pine: ['Pine', 0.50], cedar: ['Cedar', 0.38], balsa: ['Balsa', 0.16], custom: ['Custom', null] };
 
 function shapeVolume(s, L, W, H, D) { // returns cm3 from mm inputs
   if (s === 'block') return L * W * H / 1000;

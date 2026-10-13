@@ -24,4 +24,7 @@ t('B8 fresh/salt density, no double count', () => {
 t('B9 validation', () => { assert(!B({ vol: -1 }).ok); assert(!B({ rho: 5 }).ok); assert(!B({ wood: NaN }).ok); });
 t('B10 lead pieces', () => { const r = B({ leadInc: 0.5, wood: 94.3 }); assert(Math.abs(r.diff) <= 0.25 + 1e-9); });
 t('speed', () => close(C.speed(50, 25), 2));
+t('R8 Kristal 6 preset 100:33 by weight, SG 1.1', () => { const k = C.RESINS[0]; const r = R({ basis: k.basis, a: k.ratioA, b: k.ratioB, mixDens: k.mixDens, cavity: 100, shrink: 0 });
+  close(r.total, 100); close(r.M, 110); close(r.A, 110 * 100 / 133, 1e-6); close(r.B, 110 * 33 / 133, 1e-6); close(r.A + r.B, r.M); });
+t('W1 woods', () => { assert(C.WOODS.meranti[1] > 0 && C.WOODS.pine[1] > 0 && Object.keys(C.WOODS)[0] === 'meranti'); });
 console.log(`\n${n} tests passed`);

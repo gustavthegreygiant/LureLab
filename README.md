@@ -7,6 +7,6 @@ Resin volume + lure buoyancy/lead calculator. Static PWA, no backend.
 **Tests:** `node test.js`
 
 ## You must supply / verify
-- Kristal 6: mix ratio, ratio basis (weight/volume), Part A/B densities (if by weight), shrinkage. Nothing is pre-filled.
+- Kristal 6: verified from AMT TDS Rev 3 (100:33 by weight, SG 1.1). Shrinkage has no published number (only "negligible"): you set the allowance. Max 5 mm per layer.
 - Wood densities are approximate; measure your own piece.
 - Measure finished-lure displacement and test in your water density.
